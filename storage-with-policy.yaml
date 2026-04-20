@@ -1,0 +1,48 @@
+formatVersion: 1
+
+inputs:
+  hostname:
+    type: string
+    title: VM Hostname
+
+  disk_size_gb:
+    type: integer
+    title: Additional Disk Size (GB)
+    default: 20
+
+resources:
+  Network1:
+    type: Cloud.vSphere.Network
+    properties:
+      networkType: existing
+      networkCidr: 10.225.1.0/24
+      name: mgmt-network-profile
+
+  Disk1:
+    type: Cloud.vSphere.Disk
+    properties:
+      capacityGb: ${input.disk_size_gb}
+      constraints:
+        - tag: 'storage:default'   # ← CRITICAL FIX
+
+  VM:
+    type: Cloud.vSphere.Machine
+    properties:
+      image: ubuntu-image-mapping
+      name: ${to_lower(input.hostname)}
+      hostname: ${to_lower(input.hostname)}
+
+      resourceGroupName: Lab-VMs
+      folderName: Lab-VMs
+      flavor: vm-small
+
+      networks:
+        - network: ${resource.Network1.id}
+          assignment: dynamic
+
+      storage:
+        constraints:
+          - tag: 'storage:default'   # ← ensures OS disk also uses same policy
+
+      attachedDisks:
+        - source: ${resource.Disk1.id}
