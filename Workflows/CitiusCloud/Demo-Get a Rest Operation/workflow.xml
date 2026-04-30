@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ns2:workflow xmlns:ns2="http://vmware.com/vco/workflow" root-name="item1" object-name="workflow:name=generic" id="1a659d3d-dcf6-402a-8af0-4a0f76eee6f7" editor-version="2.0" version="0.0.1" api-version="6.0.0" restartMode="1" resumeFromFailedMode="0">
+    <display-name>Demo-Get a Rest Operation</display-name>
+    <position y="50.0" x="100.0"/>
+    <input>
+        <param name="host" type="REST:RESTHost">
+            <description>Parent REST host</description>
+        </param>
+        <param name="name" type="string">
+            <description>Name</description>
+        </param>
+        <param name="urlTemplate" type="string">
+            <description>Template URL</description>
+        </param>
+        <param name="method" type="string">
+            <description>HTTP method</description>
+        </param>
+        <param name="defaultContentType" type="string">
+            <description>Default content type</description>
+        </param>
+    </input>
+    <output>
+        <param name="operation" type="REST:RESTOperation"/>
+    </output>
+    <workflow-item name="item0" type="end" end-mode="0" comparator="0">
+        <in-binding/>
+        <out-binding/>
+        <position y="50.0" x="300.0"/>
+    </workflow-item>
+    <workflow-item name="item1" out-name="item0" type="link" linked-workflow-id="B480808080808080808080808080808080808080012995053491651398b094fa1" comparator="0">
+        <display-name>Add a REST operation</display-name>
+        <script encoded="false"></script>
+        <in-binding>
+            <bind name="host" type="REST:RESTHost" export-name="host">
+                <description>Parent REST host</description>
+            </bind>
+            <bind name="name" type="string" export-name="name">
+                <description>Name</description>
+            </bind>
+            <bind name="urlTemplate" type="string" export-name="urlTemplate">
+                <description>Template URL</description>
+            </bind>
+            <bind name="method" type="string" export-name="method">
+                <description>HTTP method</description>
+            </bind>
+            <bind name="defaultContentType" type="string" export-name="defaultContentType">
+                <description>Default content type</description>
+            </bind>
+        </in-binding>
+        <out-binding>
+            <bind name="operation" type="REST:RESTOperation" export-name="operation"/>
+        </out-binding>
+        <description> </description>
+        <position y="60.0" x="170.0"/>
+    </workflow-item>
+</ns2:workflow>
