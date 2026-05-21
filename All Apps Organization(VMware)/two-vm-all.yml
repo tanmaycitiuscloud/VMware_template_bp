@@ -1,0 +1,50 @@
+formatVersion: 1
+inputs:
+  vm_name:
+    type: string
+    title: VM Name
+    default: ubuntu-vm
+resources:
+  CCI_Supervisor_Namespace_1:
+    type: CCI.Supervisor.Namespace
+    properties:
+      name: test-namespace-f65c8
+      existing: true
+  VM_1:
+    type: CCI.Supervisor.Resource
+    dependsOn:
+      - VM_2
+    properties:
+      context: ${resource.CCI_Supervisor_Namespace_1.id}
+      manifest:
+        apiVersion: vmoperator.vmware.com/v1alpha3
+        kind: VirtualMachine
+        metadata:
+          name: vm-1-${env.shortDeploymentId}
+        spec:
+          className: best-effort-large
+          imageName: vmi-618989b042f31ef2e
+          storageClass: cluster-wld01-02a-vsan-storage-policy
+          powerState: PoweredOn
+      wait:
+        conditions:
+          - type: VirtualMachineCreated
+            status: 'True'
+  VM_2:
+    type: CCI.Supervisor.Resource
+    properties:
+      context: ${resource.CCI_Supervisor_Namespace_1.id}
+      manifest:
+        apiVersion: vmoperator.vmware.com/v1alpha3
+        kind: VirtualMachine
+        metadata:
+          name: vm-2-${env.shortDeploymentId}
+        spec:
+          className: best-effort-large
+          imageName: vmi-618989b042f31ef2e
+          powerState: PoweredOn
+          storageClass: cluster-wld01-02a-vsan-storage-policy
+      wait:
+        conditions:
+          - type: VirtualMachineCreated
+            status: 'True'
