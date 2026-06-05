@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ns2:workflow xmlns:ns2="http://vmware.com/vco/workflow" root-name="item2" object-name="workflow:name=generic" id="3f0147a5-ce27-47a5-98b6-9df581e8c898" editor-version="2.0" version="0.0.0" api-version="6.0.0" restartMode="1" resumeFromFailedMode="0">
+    <display-name>m-call blueprint</display-name>
+    <position y="50.0" x="100.0"/>
+    <input>
+        <param name="vcfHost" type="VCFA:Host"/>
+    </input>
+    <output/>
+    <workflow-item name="item0" type="end" end-mode="0" comparator="0">
+        <in-binding/>
+        <out-binding/>
+        <position y="42.11145618000168" x="386.7739820199815"/>
+    </workflow-item>
+    <workflow-item name="item2" out-name="item0" type="task" comparator="0">
+        <display-name>get blueprints</display-name>
+        <script encoded="false">var restClient = vcfHost.createRestClient();
+var refreshToken = vcfHost.getApiToken();
+
+
+var bodyWithRefresh = JSON.stringify({ "refreshToken": refreshToken });
+var bodyEmpty = null;
+
+var tests = [
+    { method: "POST", path: "/iaas/api/login",                                          body: bodyWithRefresh },
+    { method: "POST", path: "/csp/gateway/am/api/auth/api-tokens/authorize",            body: "api_token=" + refreshToken },
+    { method: "POST", path: "/api/tokens",                                              body: bodyWithRefresh },
+    { method: "POST", path: "/csp/gateway/am/api/login?access_token",                  body: bodyWithRefresh },
+    { method: "GET",  path: "/csp/gateway/am/api/auth/token-public-key?issuer=authn",  body: null },
+    { method: "POST", path: "/identity/api/tokens",                                     body: bodyWithRefresh },
+    { method: "POST", path: "/vcac/services/api/tokens",                                body: bodyWithRefresh },
+];
+
+for each (var t in tests) {
+    var req = restClient.createRequest(t.method, t.path, t.body);
+    req.setHeader("Accept", "application/json");
+    if (t.body &amp;&amp; t.body.indexOf("{") === 0) {
+        req.setHeader("Content-Type", "application/json");
+    } else {
+        req.setHeader("Content-Type", "application/x-www-form-urlencoded");
+    }
+
+    var res = restClient.execute(req);
+    System.log("[" + res.getStatusCode() + "] " + t.method + " " + t.path);
+
+    // Print body only for non-404 responses
+    if (res.getStatusCode() !== 404) {
+        System.log("  --&gt; " + res.getContentAsString());
+    }
+}</script>
+        <in-binding>
+            <bind name="vcfHost" type="VCFA:Host" export-name="vcfHost"/>
+        </in-binding>
+        <out-binding/>
+        <description>Simple task with custom script capability.</description>
+        <position y="46.05572809000084" x="163.38699100999074"/>
+    </workflow-item>
+</ns2:workflow>
