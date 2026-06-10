@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ns2:workflow xmlns:ns2="http://vmware.com/vco/workflow" root-name="item1" object-name="workflow:name=generic" id="e269982a-c39d-4f37-9efa-dafc88a8d55a" editor-version="2.0" version="1.0.0" api-version="6.0.0" allowed-operations="vef" restartMode="1" resumeFromFailedMode="0">
+    <display-name>Demo Tag Powershell 1</display-name>
+    <position y="50.0" x="60.0"/>
+    <input>
+        <param name="vmName" type="string"/>
+        <param name="tagName" type="string"/>
+        <param name="tagDescription" type="string"/>
+        <param name="categoryName" type="string"/>
+    </input>
+    <output/>
+    <attrib name="vCenter" type="string" conf-id="5f3deb97-99d1-4ff9-862c-d4b8575680c3" conf-key="vCenter"/>
+    <attrib name="vcUser" type="string" conf-id="5f3deb97-99d1-4ff9-862c-d4b8575680c3" conf-key="vcUser"/>
+    <attrib name="vcPassword" type="string" conf-id="5f3deb97-99d1-4ff9-862c-d4b8575680c3" conf-key="vcPass"/>
+    <attrib name="requestObject" type="Properties">
+        <value encoded="n">{}</value>
+    </attrib>
+    <workflow-item name="item0" type="end" end-mode="0" comparator="0">
+        <in-binding/>
+        <out-binding/>
+        <position y="50.0" x="860.0"/>
+    </workflow-item>
+    <workflow-item name="item1" out-name="item4" type="task" comparator="0">
+        <display-name>Create Request Object</display-name>
+        <script encoded="false">var req = new Properties();
+
+req.put("vmName", vmName);
+req.put("tagName", tagName);
+req.put("tagDescription", tagDescription);
+req.put("categoryName", categoryName);
+
+
+requestObject = req;
+
+System.log("Created requestObject");</script>
+        <in-binding>
+            <bind name="vmName" type="string" export-name="vmName"/>
+            <bind name="tagName" type="string" export-name="tagName"/>
+            <bind name="vCenter" type="string" export-name="vCenter"/>
+            <bind name="vcPassword" type="string" export-name="vcPassword"/>
+            <bind name="vcUser" type="string" export-name="vcUser"/>
+            <bind name="tagDescription" type="string" export-name="tagDescription"/>
+            <bind name="categoryName" type="string" export-name="categoryName"/>
+        </in-binding>
+        <out-binding>
+            <bind name="requestObject" type="Properties" export-name="requestObject"/>
+        </out-binding>
+        <description>Simple task with custom script capability.</description>
+        <position y="60.0" x="140.0"/>
+    </workflow-item>
+    <workflow-item name="item2" out-name="item3" type="task" comparator="0">
+        <display-name>Check / Create Tag</display-name>
+        <runtime>powercli:-powershell-7.4</runtime>
+        <script encoded="false">function Handler($context, $inputs) {
+
+    $vCenter = $inputs.vCenter
+    $vcUser = $inputs.vcUser
+    $vcPass = $inputs.vcPassword
+
+    $tagName = $inputs.requestObject.tagName
+    $description = $inputs.requestObject.tagDescription
+    $categoryName = $inputs.requestObject.categoryName
+
+    # FIX 1: Ignore untrusted SSL certificates before attempting connection
+    Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false | Out-Null
+
+    # FIX 2: Added -ErrorAction Stop so it crashes cleanly here if vCenter is unreachable
+    Connect-VIServer `
+        -Server $vCenter `
+        -User $vcUser `
+        -Password $vcPass `
+        -ErrorAction Stop | Out-Null
+
+    try {
+        $tag = Get-Tag -Name $tagName -ErrorAction SilentlyContinue
+
+        if (!$tag) {
+            $tag = New-Tag `
+                -Name $tagName `
+                -Description $description `
+                -Category $categoryName `
+                -ErrorAction Stop
+
+            # FIX 3: Use Add-Member to safely add properties to the vRO PSObject wrapper
+            $inputs.requestObject | Add-Member -NotePropertyName "tagCreated" -NotePropertyValue $true -Force
+        }
+        else {
+            # FIX 3: Use Add-Member here as well
+            $inputs.requestObject | Add-Member -NotePropertyName "tagCreated" -NotePropertyValue $false -Force
+        }
+
+        return @{
+            requestObject = $inputs.requestObject
+        }
+    }
+    catch {
+        # Escalates any execution errors up to the vRO Engine clearly
+        throw $_
+    }
+    finally {
+        # Only attempt disconnect if a connection was actually established
+        Disconnect-VIServer -Server $vCenter -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+    }
+}</script>
+        <in-binding>
+            <bind name="requestObject" type="Properties" export-name="requestObject"/>
+            <bind name="vCenter" type="string" export-name="vCenter"/>
+            <bind name="vcPassword" type="string" export-name="vcPassword"/>
+            <bind name="vcUser" type="string" export-name="vcUser"/>
+        </in-binding>
+        <out-binding>
+            <bind name="requestObject" type="Properties" export-name="requestObject"/>
+        </out-binding>
+        <description>Simple task with custom script capability.</description>
+        <position y="60.0" x="400.0"/>
+    </workflow-item>
+    <workflow-item name="item3" out-name="item0" type="task" comparator="0">
+        <display-name>Assign Tag</display-name>
+        <runtime>powercli:-powershell-7.4</runtime>
+        <script encoded="false">function Handler($context, $inputs) {
+
+    # --- Inputs ---
+    $vCenter = $inputs.vCenter
+    $vcUser = $inputs.vcUser
+    $vcPass = $inputs.vcPassword
+
+    $vmName = $inputs.requestObject.vmName
+    $tagName = $inputs.requestObject.tagName
+
+    # --- Guard Clauses (Ensures bindings are set in vRO) ---
+    if ([string]::IsNullOrEmpty($vCenter)) { throw "vRO Task Input Error: 'vCenter' binding is missing or empty." }
+    if ([string]::IsNullOrEmpty($vcUser))  { throw "vRO Task Input Error: 'vcUser' binding is missing or empty." }
+    if ([string]::IsNullOrEmpty($vcPass))  { throw "vRO Task Input Error: 'vcPassword' binding is missing or empty." }
+
+    # --- PowerCLI Configuration ---
+    Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false | Out-Null
+
+    # --- Connection ---
+    Connect-VIServer `
+        -Server $vCenter `
+        -User $vcUser `
+        -Password $vcPass `
+        -ErrorAction Stop | Out-Null
+
+    try {
+        $vm = Get-VM -Name $vmName -ErrorAction Stop
+        $tag = Get-Tag -Name $tagName -ErrorAction Stop
+
+        # Check if the tag is already assigned to the VM
+        $existing = Get-TagAssignment -Entity $vm -ErrorAction SilentlyContinue |
+            Where-Object {$_.Tag.Name -eq $tagName}
+
+        if (!$existing) {
+            New-TagAssignment `
+                -Entity $vm `
+                -Tag $tag `
+                -ErrorAction Stop | Out-Null
+        }
+
+        # Return status and object back to vRO
+        return @{
+            status = "SUCCESS"
+            requestObject = $inputs.requestObject
+        }
+    }
+    catch {
+        throw $_
+    }
+    finally {
+        Disconnect-VIServer -Server $vCenter -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+    }
+}</script>
+        <in-binding>
+            <bind name="requestObject" type="Properties" export-name="requestObject"/>
+            <bind name="vCenter" type="string" export-name="vCenter"/>
+            <bind name="vcPassword" type="string" export-name="vcPassword"/>
+            <bind name="vcUser" type="string" export-name="vcUser"/>
+        </in-binding>
+        <out-binding/>
+        <description>Simple task with custom script capability.</description>
+        <position y="60.0" x="560.0"/>
+    </workflow-item>
+    <workflow-item name="item4" out-name="item2" type="task" comparator="0">
+        <display-name>Check / Create Category</display-name>
+        <runtime>powercli:-powershell-7.4</runtime>
+        <script encoded="false">function Handler($context, $inputs) {
+
+    $vCenter = $inputs.vCenter
+    $vcUser = $inputs.vcUser
+    $vcPass = $inputs.vcPassword
+    $categoryName = $inputs.requestObject.categoryName
+
+    Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false | Out-Null
+
+    Connect-VIServer `
+        -Server $vCenter `
+        -User $vcUser `
+        -Password $vcPass -ErrorAction Stop | Out-Null
+
+    try {
+        $category = Get-TagCategory -Name $categoryName -ErrorAction SilentlyContinue
+
+        if (!$category) {
+            $category = New-TagCategory `
+                -Name $categoryName `
+                -Cardinality Multiple `
+                -EntityType VirtualMachine `
+                -ErrorAction Stop
+
+            # FIX: Use Add-Member to dynamically add the property to the PSObject
+            $inputs.requestObject | Add-Member -NotePropertyName "categoryCreated" -NotePropertyValue $true -Force
+        }
+        else {
+            # FIX: Use Add-Member here as well
+            $inputs.requestObject | Add-Member -NotePropertyName "categoryCreated" -NotePropertyValue $false -Force
+        }
+
+        # Return the modified object back to vRO
+        return @{
+            requestObject = $inputs.requestObject
+        }
+    }
+    catch {
+        throw $_
+    }
+    finally {
+        Disconnect-VIServer `
+            -Server $vCenter `
+            -Confirm:$false | Out-Null
+    }
+}</script>
+        <in-binding>
+            <bind name="requestObject" type="Properties" export-name="requestObject"/>
+            <bind name="vCenter" type="string" export-name="vCenter"/>
+            <bind name="vcPassword" type="string" export-name="vcPassword"/>
+            <bind name="vcUser" type="string" export-name="vcUser"/>
+        </in-binding>
+        <out-binding>
+            <bind name="requestObject" type="Properties" export-name="requestObject"/>
+        </out-binding>
+        <description>Simple task with custom script capability.</description>
+        <position y="60.0" x="260.0"/>
+    </workflow-item>
+</ns2:workflow>
