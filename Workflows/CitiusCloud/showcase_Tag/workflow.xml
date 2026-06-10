@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<ns2:workflow xmlns:ns2="http://vmware.com/vco/workflow" root-name="item1" object-name="workflow:name=generic" id="3110256d-7911-4bef-a242-d4e3b508d325" editor-version="2.0" version="1.0.0" api-version="6.0.0" allowed-operations="vef" restartMode="1" resumeFromFailedMode="0">
+    <display-name>showcase_Tag</display-name>
+    <position y="20.0" x="80.0"/>
+    <input>
+        <param name="inputProperties" type="Properties"/>
+        <param name="resourceNames" type="Array/string"/>
+    </input>
+    <output/>
+    <attrib name="vmName" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <attrib name="customProperties" type="Properties">
+        <value encoded="n">{}</value>
+    </attrib>
+    <attrib name="errorCode" type="string">
+        <value encoded="n"></value>
+    </attrib>
+    <workflow-item name="item0" type="end" end-mode="0" comparator="0">
+        <in-binding/>
+        <out-binding/>
+        <position y="20.0" x="460.0"/>
+    </workflow-item>
+    <workflow-item name="item1" out-name="item0" catch-name="item2" throw-bind-name="errorCode" type="task" comparator="0">
+        <display-name>Extract BP Payload</display-name>
+        <script encoded="false">if (inputProperties.get("eventType") != 'CREATE_DEPLOYMENT')
+    throw '';
+
+
+var vaaEvents = {
+  "compute.removal.pre":	"Compute Removal pre",
+  "compute.removal.post":	"Compute Removal post",
+  "compute.provision.pre":	"Compute Provision pre",
+  "compute.provision.post":	"Compute Provision post",
+  "deployment.request.pre": "Deployment Request Pre",
+  "deployment.resource.request.pre": "deployment.resource.request.pre",
+  "deployment.resource.request.post": "deployment.resource.request.post",
+  "deployment.request.post": "deployment.request.post",
+
+}
+
+
+//Find out VAA event
+var vaaEvent = System.getContext().getParameter("__metadata_eventTopicId");
+System.log("VAA event name:	" + vaaEvents[vaaEvent]);
+System.log("VAA event name (dotted) :	" + vaaEvent);
+
+
+var customProperties = new Properties();
+customProperties = inputProperties.get("requestInputs");
+
+var deploymentName = inputProperties.get("deploymentName");
+var vmName = "raaj-" + deploymentName.toLowerCase();
+System.log("vmName	:" + vmName);
+
+if (customProperties != null) {
+  environment = customProperties.get("environment");
+  application = customProperties.get("application");
+  owner = customProperties.get("owner");
+
+  System.log("environment	:" + environment);
+  System.log("application	:" + application);
+  System.log("owner :" + owner);
+}
+</script>
+        <in-binding>
+            <bind name="inputProperties" type="Properties" export-name="inputProperties"/>
+            <bind name="resourceNames" type="Array/string" export-name="resourceNames"/>
+        </in-binding>
+        <out-binding>
+            <bind name="customProperties" type="Properties" export-name="customProperties"/>
+            <bind name="vmName" type="string" export-name="vmName"/>
+        </out-binding>
+        <description>Simple task with custom script capability.</description>
+        <position y="30.0" x="180.0"/>
+    </workflow-item>
+    <workflow-item name="item2" out-name="item3" type="task" comparator="0">
+        <display-name>exception handling</display-name>
+        <script encoded="false">System.log(errorCode);</script>
+        <in-binding>
+            <bind name="errorCode" type="string" export-name="errorCode"/>
+        </in-binding>
+        <out-binding/>
+        <description>Simple task with custom script capability.</description>
+        <position y="90.0" x="160.0"/>
+    </workflow-item>
+    <workflow-item name="item3" type="end" end-mode="0" comparator="0">
+        <display-name>End workflow</display-name>
+        <in-binding/>
+        <out-binding/>
+        <position y="80.0" x="320.0"/>
+    </workflow-item>
+</ns2:workflow>
