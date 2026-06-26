@@ -1,0 +1,17 @@
+tasks:
+- name: get list of facts
+  vmware_guest_facts:
+    hostname: '{{ vc_name }}'
+    username: '{{ vc_user }}'
+    password: '{{ vc_pwd }}'
+    datacenter: "{{ dc_name }}"
+    name: "{{ vm_name }}"
+    folder: "{{ dc_folder }}"
+    validate_certs: False
+  register: vm_facts
+
+- set_fact:
+    vm_uuid: "{{ vm_facts.instance.instance_uuid }}"
+
+  - debug:
+      msg: "product uuid hw : {{ vm_facts.instance.hw_product_uuid }}\n instance: {{ vm_facts.instance.instance_uuid }}"
