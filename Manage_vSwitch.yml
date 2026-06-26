@@ -1,0 +1,81 @@
+- name: Add Host to '{{ mgmt_vswitch }}'
+  vmware_dvs_host:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    esxi_hostname: '{{ inventory_hostname }}.{{ domain.mgmt }}'
+    validate_certs: no
+    switch_name: '{{ mgmt_vswitch }}'
+    vmnics:
+       - '{{ mgmt_uplink_2 }}'
+    state: present
+  delegate_to:  '{{ vcenter_delegation }}'
+
+- name: Migrate Management VM kernel from vSwitch0 to '{{ mgmt_vswitch }}' on management portgroup '{{ mgmt_pg }}'
+  vmware_migrate_vmk:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    esxi_hostname: '{{ inventory_hostname }}.{{ domain.mgmt }}'
+    validate_certs: no
+    device: vmk0
+    current_switch_name: 'vSwitch0'
+    current_portgroup_name: 'Management Network'
+    migrate_switch_name: '{{ mgmt_vswitch }}'
+    migrate_portgroup_name: '{{ mgmt_pg }}'
+  delegate_to: '{{ vcenter_delegation }}'
+
+- name: Remove standard vSwitch0
+  vmware_vswitch:
+    hostname: '{{ inventory_hostname }}.{{ domain.mgmt }}'
+    username: '{{ esxi_username }}'
+    password: '{{ esxi_password }}'
+    switch: 'vSwitch0'
+    validate_certs: no
+    state: absent
+  delegate_to: '{{ vcenter_delegation }}'
+
+- name: Add host to virtualmachine Distributed vSwitch - '{{ vm_vswitch }}'
+  vmware_dvs_host:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    esxi_hostname: '{{ inventory_hostname }}.{{ domain.mgmt }}'
+    validate_certs: no
+    switch_name: '{{ vm_vswitch }}'
+    vmnics:
+        - '{{ vm_uplink_1 }}'
+        - '{{ vm_uplink_2 }}'
+    state: present
+  delegate_to:  '{{ vcenter_delegation }}'
+
+- name: Add host to vMotion Distributed vSwitch when the host has dedicated vmotion uplinks.
+  vmware_dvs_host:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    esxi_hostname: '{{ inventory_hostname }}.{{ domain.mgmt }}'
+    validate_certs: no
+    switch_name: '{{ vmotion_vswitch }}'
+    vmnics:
+        - '{{ vmotion_uplink_1 }}'
+        - '{{ vmotion_uplink_2 }}'
+    state: present
+  delegate_to:  '{{ vcenter_delegation }}'
+
+- name: Add and Enable vMotion vmkernel using static network type
+  vmware_vmkernel:
+    hostname: '{{ vcenter_hostname }}'
+    username: '{{ vcenter_username }}'
+    password: '{{ vcenter_password }}'
+    esxi_hostname: '{{ inventory_hostname }}.{{ domain.mgmt }}'
+    dvswitch_name: '{{ vmotion_vswitch }}'
+    portgroup_name: '{{ vmotion_pg }}'
+    network:
+      type: 'static'
+      ip_address: '{{ dns_result_vmotion.msg }}'
+      subnet_mask: '{{ vmotion_netmask }}'
+    validate_certs: no
+    state: present
+    enable_vmotion: True
+  delegate_to:  '{{ vcenter_delegation }}'
