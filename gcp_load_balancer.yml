@@ -1,0 +1,100 @@
+# playbooks/gcp-load-balancer.yml
+---
+- name: Configure GCP HTTP(S) Load Balancer
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    gcp_project: my-project-id
+    gcp_auth_kind: serviceaccount
+    gcp_service_account_file: /path/to/sa-key.json
+
+  tasks:
+    # Create a health check
+    - name: Create HTTP health check
+      google.cloud.gcp_compute_health_check:
+        name: myapp-http-health-check
+        http_health_check:
+          port: 80
+          request_path: /health
+        check_interval_sec: 10
+        timeout_sec: 5
+        healthy_threshold: 3
+        unhealthy_threshold: 3
+        project: "{{ gcp_project }}"
+        auth_kind: "{{ gcp_auth_kind }}"
+        service_account_file: "{{ gcp_service_account_file }}"
+        state: present
+      register: health_check
+
+    # Create an instance group
+    - name: Create instance group
+      google.cloud.gcp_compute_instance_group:
+        name: myapp-web-group
+        zone: us-central1-a
+        named_ports:
+          - name: http
+            port: 80
+        project: "{{ gcp_project }}"
+        auth_kind: "{{ gcp_auth_kind }}"
+        service_account_file: "{{ gcp_service_account_file }}"
+        state: present
+      register: instance_group
+
+    # Create backend service
+    - name: Create backend service
+      google.cloud.gcp_compute_backend_service:
+        name: myapp-backend-service
+        health_checks:
+          - "{{ health_check.selfLink }}"
+        backends:
+          - group: "{{ instance_group.selfLink }}"
+            balancing_mode: UTILIZATION
+            max_utilization: 0.8
+        port_name: http
+        protocol: HTTP
+        timeout_sec: 30
+        project: "{{ gcp_project }}"
+        auth_kind: "{{ gcp_auth_kind }}"
+        service_account_file: "{{ gcp_service_account_file }}"
+        state: present
+      register: backend
+
+    # Create URL map
+    - name: Create URL map
+      google.cloud.gcp_compute_url_map:
+        name: myapp-url-map
+        default_service: "{{ backend }}"
+        project: "{{ gcp_project }}"
+        auth_kind: "{{ gcp_auth_kind }}"
+        service_account_file: "{{ gcp_service_account_file }}"
+        state: present
+      register: url_map
+
+    # Create target HTTP proxy
+    - name: Create HTTP proxy
+      google.cloud.gcp_compute_target_http_proxy:
+        name: myapp-http-proxy
+        url_map: "{{ url_map }}"
+        project: "{{ gcp_project }}"
+        auth_kind: "{{ gcp_auth_kind }}"
+        service_account_file: "{{ gcp_service_account_file }}"
+        state: present
+      register: http_proxy
+
+    # Create global forwarding rule
+    - name: Create forwarding rule
+      google.cloud.gcp_compute_global_forwarding_rule:
+        name: myapp-forwarding-rule
+        target: "{{ http_proxy.selfLink }}"
+        port_range: "80-80"
+        ip_protocol: TCP
+        project: "{{ gcp_project }}"
+        auth_kind: "{{ gcp_auth_kind }}"
+        service_account_file: "{{ gcp_service_account_file }}"
+        state: present
+      register: forwarding_rule
+
+    - name: Show load balancer IP
+      ansible.builtin.debug:
+        msg: "LB IP: {{ forwarding_rule.IPAddress }}"
